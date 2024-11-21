@@ -1,68 +1,46 @@
 import socket
-import time
-import struct
 
-# RSA Helper Function
-def rsa_encrypt(message, key):
-    e_or_d, n = key
-    # Pad message to ensure proper size for encryption
-    message_bytes = message.encode('utf-8')
-    encrypted_message = [pow(byte, e_or_d, n) for byte in message_bytes]
-    return encrypted_message
+# Fungsi untuk enkripsi dan dekripsi RSA sederhana
+def rsa_encrypt(message, public_key):
+    n, e = public_key
+    return [pow(ord(char), e, n) for char in message]
 
-def rsa_decrypt(cipher, key):
-    d, n = key
-    decrypted_message = ''.join([chr(pow(char, d, n)) for char in cipher])
-    return decrypted_message
+def rsa_decrypt(encrypted_message, private_key):
+    n, d = private_key
+    return ''.join([chr(pow(char, d, n)) for char in encrypted_message])
 
-# PKA Server Key
-pka_public_key = (7, 143)  # {e, n}
-pka_private_key = (103, 143)  # {d, n}
+# Fungsi untuk dekripsi DES
+def des_decrypt(encrypted_message, key):
+    return bytes([byte ^ key[i % len(key)] for i, byte in enumerate(encrypted_message)])
 
-# Public Keys A and B
-public_keys = {
-    "A": (7, 143),  # Public key A
-    "B": (11, 143)  # Public key B
-}
+# RSA Keys (contoh sederhana)
+PUBLIC_KEY = (3233, 17)  # (n, e)
+PRIVATE_KEY = (3233, 2753)  # (n, d)
 
-# PKA Server Implementation
-def pka_server():
-    # Start server socket
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('127.0.0.1', 65432))
-    server_socket.listen(5)
-    print("PKA Server running...")
+HOST = '127.0.0.1'
+PORT = 65432
 
-    while True:
-        conn, addr = server_socket.accept()
-        print(f"Connection received from {addr}")
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.bind((HOST, PORT))
+    s.listen()
+    print("Server is listening...")
 
-        # Receive request from client
-        request = conn.recv(1024).decode()
-        print(f"Request received: {request}")
+    conn, addr = s.accept()
+    with conn:
+        print(f"Connection from: {addr}")
 
-        # Parse request 
-        if request.startswith("REQUEST_KEY:"):
-            requested_id = request.split(":")[1]
-            if requested_id in public_keys:
-                # Return the public key for the requested ID
-                pub_key = public_keys[requested_id]
-                response = f"Public Key for {requested_id}: {pub_key}"
-                
-                # Encrypt the response with PKA's private key
-                encrypted_response = rsa_encrypt(response, pka_private_key)
-                print(f"Sending encrypted response: {encrypted_response}")
-                
-                # Send encrypted response (encoding as byte data)
-                encrypted_response_bytes = struct.pack(f'{len(encrypted_response)}I', *encrypted_response)
-                conn.send(encrypted_response_bytes)
-            else:
-                conn.send("ERROR: Unknown ID".encode())
-        else:
-            conn.send("ERROR: Invalid Request".encode())
+        # Menerima DES Key yang terenkripsi menggunakan RSA
+        encrypted_des_key = conn.recv(1024)
+        encrypted_des_key = eval(encrypted_des_key.decode())  # Convert string back to list
 
-        conn.close()
+        # Dekripsi DES Key
+        des_key = rsa_decrypt(encrypted_des_key, PRIVATE_KEY).encode()
+        print(f"Decrypted DES key: {des_key}")
 
-# Run PKA server
-if __name__ == "__main__":
-    pka_server()
+        # Menerima pesan terenkripsi
+        encrypted_message = conn.recv(1024)
+        print(f"Encrypted message received: {encrypted_message}")
+
+        # Dekripsi pesan
+        decrypted_message = des_decrypt(encrypted_message, des_key)
+        print(f"Decrypted message: {decrypted_message.decode()}")
