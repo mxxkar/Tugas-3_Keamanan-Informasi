@@ -1,4 +1,5 @@
 import socket
+import time
 from threading import Thread
 
 # RSA Keys (Server)
@@ -17,11 +18,15 @@ def des_decrypt(encrypted_message, key):
 # Fungsi untuk menangani koneksi klien
 def handle_client(client_socket):
     print("Client connected.")
+    time.sleep(1)
     
     # Menerima dan mendekripsi kunci DES
     encrypted_des_key = eval(client_socket.recv(1024).decode())  # Terima kunci DES terenkripsi
+    print(f"Encrypted DES key received: {encrypted_des_key}")
+    time.sleep(1)
     des_key = rsa_decrypt(encrypted_des_key, PRIVATE_KEY)
-    print(f"DES key received: {des_key}")
+    print(f"DES key: {des_key.decode('utf-8')}")
+    time.sleep(1)
     
     # Percakapan tanpa determinasi
     while True:
@@ -29,12 +34,22 @@ def handle_client(client_socket):
         if not encrypted_message:
             break
         decrypted_message = des_decrypt(encrypted_message, des_key)
+        time.sleep(1)
         print(f"Client: {decrypted_message.decode()}")
         
         # Kirim balasan (terenkripsi dengan DES)
+        time.sleep(1)
         response = input("Enter your reply: ").encode()
         encrypted_response = bytes([byte ^ des_key[i % len(des_key)] for i, byte in enumerate(response)])
         client_socket.send(encrypted_response)
+        
+        if response.decode().lower() == 'exit':
+            print("Ending the conversation...")
+            client_socket.close()
+            break
+
+        time.sleep(1)
+        print("Message has been sent.")
     
     client_socket.close()
     print("Client disconnected.")
