@@ -3,3 +3,5 @@
 - Nadiah Nuri Aisyah-5025211210
 
 **Pembagian Tugas**
+Nadiah: Server
+Sekar: Client
